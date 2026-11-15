@@ -25,20 +25,27 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Connect database with connection cache
 let isConnected = false;
 const connectDB = async () => {
-  if (isConnected && mongoose.connection.readyState === 1) return;
+  if (mongoose.connection.readyState >= 1) return;
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/bugtracker';
   try {
-    const db = await mongoose.connect(uri, { bufferCommands: false });
+    const db = await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 8000,
+    });
     isConnected = db.connections[0].readyState === 1;
     console.log('✅ Connected to MongoDB Atlas');
   } catch (err) {
     console.error('❌ MongoDB Connection Error:', err.message);
+    throw err;
   }
 };
 
 app.use(async (req, res, next) => {
-  await connectDB();
-  next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Database connection failed: ' + err.message });
+  }
 });
 
 // Routes
